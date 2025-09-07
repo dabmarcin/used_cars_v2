@@ -18,12 +18,10 @@ GITHUB_USER = "dabmarcin"
 GITHUB_REPO = "used_cars_v2"
 TAG         = "v1.0.0"  # Upewnij się, że Release o tym tagu jest OPUBLIKOWANY (nie draft)
 
-# Release assets (binaria: model/scaler)
-MODEL_URL  = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/model_samochody.pkl"
-SCALER_URL = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/scaler_samochody.pkl"
-
-# CSV z drzewa repo (raw) przypięty do tego samego taga
-CSV_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{TAG}/used_cars_clean_v3.csv"
+# Pliki z głównej gałęzi repozytorium (raw)
+MODEL_URL  = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/model_samochody.pkl"
+SCALER_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/scaler_samochody.pkl"
+CSV_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/used_cars_clean_v3.csv"
 
 # --- KONFIG HASHY (WSTAW WARTOŚCI PODANE PRZEZ UŻYTKOWNIKA) ---
 # Dozwolone: z prefiksem 'sha256:' lub bez; walidacja sama go „ogoli”.
@@ -67,19 +65,19 @@ def load_remote_csv(url: str, expected_sha256: str | None = None):
     _check_sha256(content, expected_sha256, url)
     return pd.read_csv(BytesIO(content))
 
-# --- Ładowanie modelu i scalera z GitHub Releases ---
+# --- Ładowanie modelu i scalera z GitHub ---
 model = None
 scaler = None
 
 try:
     model = load_remote_pickle(MODEL_URL, expected_sha256=MODEL_SHA256)
-    st.success("Model załadowany z GitHub Releases.")
+    st.success("Model załadowany z GitHub.")
 except Exception as e:
     st.error(f"Błąd ładowania modelu z GitHuba: {e}")
 
 try:
     scaler = load_remote_pickle(SCALER_URL, expected_sha256=SCALER_SHA256)
-    st.success("Scaler załadowany z GitHub Releases.")
+    st.success("Scaler załadowany z GitHub.")
 except Exception as e:
     st.warning(f"Uwaga: błąd ładowania scalera z GitHuba: {e}")
     scaler = None
@@ -121,7 +119,7 @@ def get_exchange_rate(target_currency):
 
 if model is not None:
     try:
-        # --- Ładowanie danych treningowych z raw.githubusercontent.com ---
+        # --- Ładowanie danych treningowych z GitHub ---
         df_train = load_remote_csv(CSV_URL, expected_sha256=CSV_SHA256)
         st.success("Dane treningowe załadowane z GitHub.")
         df_train.dropna(subset=['brand', 'model_year', 'milage', 'fuel_type', 'transmission', 'price', 'engine_hp', 'engine_cylinders', 'ext_col'], inplace=True)
