@@ -16,18 +16,24 @@ from io import BytesIO
 # --- KONFIG GITHUB (aktualizuj TAG przy nowej wersji) ---
 GITHUB_USER = "dabmarcin"
 GITHUB_REPO = "used_cars_v2"
-TAG         = "v1.0.0"  # Upewnij się, że Release o tym tagu jest OPUBLIKOWANY (nie draft)
+TAG         = "v1.0.0"  # Release jest OPUBLIKOWANY (nie draft)
 
-# Pliki z głównej gałęzi repozytorium (raw)
-MODEL_URL  = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/model_samochody.pkl"
-SCALER_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/scaler_samochody.pkl"
-CSV_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/used_cars_clean_v3.csv"
+# >>> WSZYSTKIE 3 pliki z Release assets <<<
+MODEL_URL  = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/model_samochody.pkl"
+SCALER_URL = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/scaler_samochody.pkl"
+CSV_URL    = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/used_cars_clean_v3.csv"
 
-# --- KONFIG HASHY (WSTAW WARTOŚCI PODANE PRZEZ UŻYTKOWNIKA) ---
-# Dozwolone: z prefiksem 'sha256:' lub bez; walidacja sama go „ogoli”.
+# --- KONFIG HASHY (pełne 64-znakowe, bez zmian w przyszłości poza podbiciem) ---
 MODEL_SHA256  = "a7c0b369747911bd4af1c587b93d5f680146364be24aacc491ae2cd8837968e9"
 SCALER_SHA256 = "7de8c9dbb493095a7cc33bb0b9258fe4a5128ef221b34f563edc9cdc0a14a86e"
 CSV_SHA256    = "9b982d6c315a79aa85ec5ed82de7571f51ec2f6e8b9895c7435a5caa5ba284b5"
+
+# Wyczyść cache po zmianie wersji/tagu, żeby uniknąć starych artefaktów
+try:
+    st.cache_data.clear()
+    st.cache_resource.clear()
+except Exception:
+    pass
 
 def _normalize_sha256(expected: str | None):
     """Akceptuje 'sha256:<hex>' lub samo <hex>; waliduje długość i znaki."""
@@ -128,7 +134,7 @@ if model is not None:
         brands = sorted(df_train['brand'].unique().tolist())
         years = sorted(df_train['model_year'].unique().astype(int).tolist(), reverse=True)
         fuel_types = sorted(df_train['fuel_type'].unique().tolist())
-        transmissions = ["Automat", "Manual"]
+        transmissions = sorted(df_train['transmission'].unique().tolist())
         colors = sorted(df_train['ext_col'].unique().tolist())
         engine_cylinders_options = sorted(df_train['engine_cylinders'].unique().astype(int).tolist())
 
@@ -179,7 +185,7 @@ if model is not None:
                         'milage': [None],
                         'engine_hp': [None],
                         'fuel_type': [fuel_type],
-                        'transmission_type': [transmission],
+                        'transmission': [transmission],
                         'ext_col': [ext_col],
                     }
                     input_df_base = pd.DataFrame(input_data)
@@ -204,13 +210,17 @@ if model is not None:
 
                     # --- Kodowanie kategorialne ---
                     categorical_data = {
-                        'brand': [input_df_base['brand'][0]],
-                        'fuel_type': [input_df_base['fuel_type'][0]],
-                        'transmission_type': [input_df_base['transmission_type'][0]],
-                        'ext_col': [input_df_base['ext_col'][0]]
+                        'brand': [brand],
+                        'fuel_type': [fuel_type],
+                        'transmission': [transmission],
+                        'ext_col': [ext_col]
                     }
-                    categorical_df = pd.DataFrame(categorical_data)
-                    categorical_df = pd.get_dummies(categorical_df, columns=['brand', 'fuel_type', 'transmission_type', 'ext_col'], prefix_sep='_', dummy_na=False)
+                    categorical_df = pd.get_dummies(
+                        pd.DataFrame(categorical_data),
+                        columns=['brand', 'fuel_type', 'transmission', 'ext_col'],
+                        prefix_sep='_',
+                        dummy_na=False
+                    )
 
                     # --- Przygotuj DataFrame do predykcji ---
                     numerical_data = {
