@@ -77,15 +77,15 @@ scaler = None
 
 try:
     model = load_remote_pickle(MODEL_URL, expected_sha256=MODEL_SHA256)
-    st.success("Model załadowany z GitHub.")
+    st.success("Model loaded from GitHub.")
 except Exception as e:
-    st.error(f"Błąd ładowania modelu z GitHuba: {e}")
+    st.error(f"Error loading model from GitHub: {e}")
 
 try:
     scaler = load_remote_pickle(SCALER_URL, expected_sha256=SCALER_SHA256)
-    st.success("Scaler załadowany z GitHub.")
+    st.success("Scaler loaded from GitHub.")
 except Exception as e:
-    st.warning(f"Uwaga: błąd ładowania scalera z GitHuba: {e}")
+    st.warning(f"Warning: error loading scaler from GitHub: {e}")
     scaler = None
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
@@ -127,7 +127,7 @@ if model is not None:
     try:
         # --- Ładowanie danych treningowych z GitHub ---
         df_train = load_remote_csv(CSV_URL, expected_sha256=CSV_SHA256)
-        st.success("Dane treningowe załadowane z GitHub.")
+        st.success("Training data loaded from GitHub.")
         df_train.dropna(subset=['brand', 'model_year', 'milage', 'fuel_type', 'transmission', 'price', 'engine_hp', 'engine_cylinders', 'ext_col'], inplace=True)
 
         # --- Opcje dla dropdownów ---
@@ -159,7 +159,7 @@ if model is not None:
             engine_hp_ranges.append(f"{lower_bound} - {upper_bound}")
 
     except Exception as e:
-        st.error(f"Błąd ładowania CSV z GitHuba: {e}")
+        st.error(f"Error loading CSV from GitHub: {e}")
         df_train = None
 
     if df_train is not None:
