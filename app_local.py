@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -8,24 +9,80 @@ import sklearn
 import requests
 import os
 from datetime import datetime
+import hashlib
+import string
+from io import BytesIO
 
-# --- Ładowanie modelu i scalera z lokalnych plików ---
+# --- KONFIG GITHUB (aktualizuj TAG przy nowej wersji) ---
+GITHUB_USER = "dabmarcin"
+GITHUB_REPO = "used_cars_v2"
+TAG         = "v1.0.0"  # Upewnij się, że Release o tym tagu jest OPUBLIKOWANY (nie draft)
+
+# Release assets (binaria: model/scaler)
+MODEL_URL  = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/model_samochody.pkl"
+SCALER_URL = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases/download/{TAG}/scaler_samochody.pkl"
+
+# CSV z drzewa repo (raw) przypięty do tego samego taga
+CSV_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{TAG}/used_cars_clean_v3.csv"
+
+# --- KONFIG HASHY (WSTAW WARTOŚCI PODANE PRZEZ UŻYTKOWNIKA) ---
+# Dozwolone: z prefiksem 'sha256:' lub bez; walidacja sama go „ogoli”.
+MODEL_SHA256  = "a7c0b369747911bd4af1c587b93d5f680146364be24aacc491ae2cd8837968e9"
+SCALER_SHA256 = "7de8c9dbb493095a7cc33bb0b9258fe4a5128ef221b34f563edc9cdc0a14a86e"
+CSV_SHA256    = "9b982d6c315a79aa85ec5ed82de7571f51ec2f6e8b9895c7435a5caa5ba284b5"
+
+def _normalize_sha256(expected: str | None):
+    """Akceptuje 'sha256:<hex>' lub samo <hex>; waliduje długość i znaki."""
+    if expected is None:
+        return None
+    s = expected.strip().lower()
+    if s.startswith("sha256:"):
+        s = s.split(":", 1)[1]
+    hexdigits = set(string.hexdigits.lower())
+    if len(s) != 64 or any(ch not in hexdigits for ch in s):
+        raise ValueError(f"Niepoprawny SHA-256: {expected}")
+    return s
+
+def _check_sha256(content: bytes, expected: str | None, name: str):
+    exp = _normalize_sha256(expected)
+    if exp is None:
+        return
+    h = hashlib.sha256(content).hexdigest()
+    if h != exp:
+        raise ValueError(f"Plik {name} ma inną sumę SHA-256! Oczekiwano {exp}, otrzymano {h}")
+
+@st.cache_resource(show_spinner=False)
+def load_remote_pickle(url: str, expected_sha256: str | None = None):
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    content = r.content
+    _check_sha256(content, expected_sha256, url)
+    return pickle.load(BytesIO(content))
+
+@st.cache_data(show_spinner=False)
+def load_remote_csv(url: str, expected_sha256: str | None = None):
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    content = r.content
+    _check_sha256(content, expected_sha256, url)
+    return pd.read_csv(BytesIO(content))
+
+# --- Ładowanie modelu i scalera z GitHub Releases ---
 model = None
 scaler = None
 
 try:
-    with open('model_samochody.pkl', 'rb') as f:
-        model = pickle.load(f)
-    st.success("Model loaded from local file")
+    model = load_remote_pickle(MODEL_URL, expected_sha256=MODEL_SHA256)
+    st.success("Model załadowany z GitHub Releases.")
 except Exception as e:
-    st.error(f"Error loading model: {e}")
+    st.error(f"Błąd ładowania modelu z GitHuba: {e}")
 
 try:
-    with open('scaler_samochody.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-    st.success("Scaler loaded from local file")
+    scaler = load_remote_pickle(SCALER_URL, expected_sha256=SCALER_SHA256)
+    st.success("Scaler załadowany z GitHub Releases.")
 except Exception as e:
-    st.warning(f"Warning: Error loading scaler: {e}. Predictions may be inaccurate.")
+    st.warning(f"Uwaga: błąd ładowania scalera z GitHuba: {e}")
+    scaler = None
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_exchange_rate(target_currency):
@@ -64,8 +121,9 @@ def get_exchange_rate(target_currency):
 
 if model is not None:
     try:
-        # --- Ładowanie danych treningowych z lokalnego pliku ---
-        df_train = pd.read_csv('used_cars_clean_v3.csv')
+        # --- Ładowanie danych treningowych z raw.githubusercontent.com ---
+        df_train = load_remote_csv(CSV_URL, expected_sha256=CSV_SHA256)
+        st.success("Dane treningowe załadowane z GitHub.")
         df_train.dropna(subset=['brand', 'model_year', 'milage', 'fuel_type', 'transmission', 'price', 'engine_hp', 'engine_cylinders', 'ext_col'], inplace=True)
 
         # --- Opcje dla dropdownów ---
@@ -97,7 +155,7 @@ if model is not None:
             engine_hp_ranges.append(f"{lower_bound} - {upper_bound}")
 
     except Exception as e:
-        st.error(f"Error loading training data: {e}")
+        st.error(f"Błąd ładowania CSV z GitHuba: {e}")
         df_train = None
 
     if df_train is not None:
