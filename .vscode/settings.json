@@ -1,0 +1,6 @@
+{
+    "editor.detectIndentation": false,
+    "editor.renderWhitespace": "none",
+    "editor.renderControlCharacters": true,
+    "workbench.tree.renderIndentGuides": "always"
+}

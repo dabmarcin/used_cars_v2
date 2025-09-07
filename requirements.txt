@@ -1,0 +1,11 @@
+streamlit
+pandas
+boto3
+pickle-mixin
+scikit-learn
+requests
+numpy
+nest-asyncio
+pydantic-ai[logfire]
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
